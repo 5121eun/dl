@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='models',
-    packages = ['models']
+    packages = ['models'],
     version='0.0.3',
     url='https://github.com/5121eun/models.git',
     install_requires=[
