@@ -6,4 +6,5 @@
 
 from models.vit import ViT
 from models.gpt import GPT
+from models.bert import Bert
 
