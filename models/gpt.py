@@ -8,10 +8,14 @@ from torch import nn, Tensor
 from models.layers import TransformerBlock
 
 class GPT(nn.Module):
-    def __init__(self, ntokens: int, ntimes: int, dim: int, nheads: int, hid_dim: int, depth: int, dropout = 0.):
+    def __init__(self, ntokens: int, ntimes: int, dim: int, nheads: int, hid_dim: int, depth: int, emb_mat: Tensor = None, dropout = 0.):
         super(GPT, self).__init__()
         
-        self.embed = nn.Embedding(ntokens, dim)
+        if emb_mat is not None:
+            self.embed = nn.Embedding.from_pretrained(emb_mat, freeze=False)
+        else:
+            self.embed = nn.Embedding(ntokens, dim)
+
         self.pos_embed = nn.Embedding(ntimes, dim)
         
         self.decoders = nn.ModuleList(
