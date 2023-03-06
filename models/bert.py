@@ -22,7 +22,7 @@ class Bert(nn.Module):
             [TransformerBlock(dim=dim, **kwargs) for _ in range(depth)]
         )
         
-    def forward(self, x: Tensor, seg_ids: int, **kwargs):
+    def forward(self, x: Tensor, seg_ids: Tensor, **kwargs):
         b, n = x.shape
         
         out = self.tok_embed(x)
