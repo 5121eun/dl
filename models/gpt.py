@@ -8,18 +8,14 @@ from torch import nn, Tensor
 from models.layers import TransformerBlock
 
 class GPT(nn.Module):
-    def __init__(self, ntokens: int, ntimes: int, dim: int, nheads: int, hid_dim: int, depth: int, emb_mat: Tensor = None, dropout = 0.):
+    def __init__(self, ntokens: int, ntimes: int, dim: int, nheads: int, hid_dim: int, depth: int, dropout = 0., **kwargs):
         super(GPT, self).__init__()
         
-        if emb_mat is not None:
-            self.embed = nn.Embedding.from_pretrained(emb_mat, freeze=False)
-        else:
-            self.embed = nn.Embedding(ntokens, dim)
-
+        self.embed = nn.Embedding(ntokens, dim)
         self.pos_embed = nn.Embedding(ntimes, dim)
         
         self.decoders = nn.ModuleList(
-            [TransformerBlock(dim, nheads, hid_dim, dropout) for _ in range(depth)]
+            [TransformerBlock(dim, nheads, hid_dim, dropout, **kwargs) for _ in range(depth)]
         )
                 
     def forward(self, x: Tensor, **kwargs):
@@ -30,17 +26,18 @@ class GPT(nn.Module):
         pos_out = self.pos_embed(pos)
         out = out + pos_out
         
-        for decoder in self.decoders:
-            out = decoder(out, **kwargs)
+        sparse_masks = kwargs['sparse_masks']
+        del kwargs['sparse_masks']
         
-        return out
-    
-#     @torch.no_grad()
-#     def generate(self, token, ntimes: int):
-#         for ntimes in range(ntimes):
-#             out = self(token)
-#             out = F.softmax(out, dim=-1)
-#             out = out.argmax(dim=-1)
+        for i, decoder in enumerate(self.decoders):
+            if i % 2 == 0:
+                sps_mask = None
+            else:
+                sps_mask = sparse_masks
             
-#             token = torch.cat((token[:, :1], out), dim=1)
-#         return out
+            if i != len(self.decoders) - 1:
+                out = decoder(out, sparse_masks=sps_mask, **kwargs)
+            else:
+                out = decoder(out, is_final=True, sparse_masks=sps_mask, **kwargs)
+                        
+        return out
