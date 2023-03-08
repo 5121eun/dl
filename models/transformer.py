@@ -158,7 +158,7 @@ class Transformer(nn.Module):
     @torch.no_grad()
     def generate(self, x: Tensor, token: Tensor, seq_len: int, mask=None):      
         for i in range(seq_len):
-            out = self(x, token, mask[:i + 1, :i + 1])
+            out = self(x, token, mask[:i + 1, :i + 1] if mask is not None else None)
             out = F.softmax(out, dim=-1)
             out = out.argmax(dim=-1)
             token = torch.cat((token[:, :1], out), dim=1)
