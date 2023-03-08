@@ -139,6 +139,7 @@ class Transformer(nn.Module):
         self.d_model = d_model
     
     def init_weight(self):
+        self.emb.weight.data.uniform_(-1, 1)
         self.linear.weight = self.emb.weight
         
     def forward(self, x: Tensor, t: Tensor, mask=None):
