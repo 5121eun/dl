@@ -1,16 +1,9 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
-
-
 import torch
 from torch import nn, Tensor
 import torch.nn.functional as F
-
-
-# In[2]:
-
 
 class PositionalEncoding(nn.Module):
     def __init__(self, max_len: int, d_model: int):
@@ -28,10 +21,6 @@ class PositionalEncoding(nn.Module):
         
     def forward(self, x):
         return x + self.pe[:x.shape[1]]
-
-
-# In[3]:
-
 
 class MultiHeadAttention(nn.Module):
     def __init__(self, d_model: int, nheads: int):
@@ -76,10 +65,6 @@ class MultiHeadAttention(nn.Module):
         out = self.out(out)
         return out
 
-
-# In[4]:
-
-
 class FeedForward(nn.Sequential):
     def __init__(self, d_model: int, d_ff: int):
         super(FeedForward, self).__init__(
@@ -87,10 +72,6 @@ class FeedForward(nn.Sequential):
             nn.ReLU(),
             nn.Linear(d_ff, d_model)
         )
-
-
-# In[5]:
-
 
 class TransformerEncoder(nn.Module):
     def __init__(self, d_model:int, nheads: int, d_ff: int):
@@ -107,10 +88,6 @@ class TransformerEncoder(nn.Module):
         out = self.ln2(out + self.ff(out))
         
         return out
-
-
-# In[6]:
-
 
 class TransformerDecoder(nn.Module):
     def __init__(self, d_model: int, nheads: int, d_ff: int):
@@ -133,10 +110,6 @@ class TransformerDecoder(nn.Module):
         
         return out
 
-
-# In[7]:
-
-
 class TransformerBlock(nn.Module):
     def __init__(self, d_model: int, nheads: int, d_ff: int):
         super(TransformerBlock, self).__init__()
@@ -148,10 +121,6 @@ class TransformerBlock(nn.Module):
         enc_out = self.encoder(x)
         out = self.decoder(t, enc_out, mask)
         return out
-
-
-# In[8]:
-
 
 class Transformer(nn.Module):
     def __init__(self, max_len: int, ntokens: int, d_model: int, nheads: int, d_ff: int, nlayers: int):
