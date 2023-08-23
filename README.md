@@ -27,6 +27,10 @@ O: 2003-03-25
 ```
 - [VAE Example](https://github.com/5121eun/models/blob/main/models/transformer_example.ipynb)
 
-<img src="https://github.com/5121eun/dl/assets/121006954/c25a5eac-6d93-4027-ac58-5de66ab88fc0" width="30%" height="30%"/>
-<img src="https://github.com/5121eun/dl/assets/121006954/f0ef7952-e836-46f0-bf21-fa3d2691890a" width="30%" height="30%"/>
+<p align="center"><img src="https://github.com/5121eun/dl/assets/121006954/3c14d275-9186-4373-ba9d-1de98cc91146"/></p>
+
+- [ViT Example](https://github.com/5121eun/dl/blob/main/vit_example.ipynb)
+
+<p align="center"><img src="https://github.com/5121eun/dl/assets/121006954/80e7c5bc-6ded-4e24-8e0a-7b240d8c4981"/></p>
+
 
