@@ -4,10 +4,10 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='models',
+    name='dl',
     packages = ['models'],
-    version='0.0.9',
-    url='https://github.com/5121eun/models.git',
+    version='0.1.0',
+    url='https://github.com/5121eun/dl.git',
     install_requires=[
         'torch'
     ]
