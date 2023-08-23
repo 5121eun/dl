@@ -5,7 +5,7 @@
 - [ViT](https://github.com/5121eun/models/blob/main/models/vit.py)
 - [VAE](https://github.com/5121eun/dl/blob/main/models/vae.py)
 
-## Installing
+## Installation
 ```
 pip install git+https://github.com/5121eun/dl
 ```
