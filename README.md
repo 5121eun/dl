@@ -25,12 +25,16 @@ Q: Mar 25, 2003
 T: 2003-03-25
 O: 2003-03-25
 ```
-- [VAE Example](https://github.com/5121eun/models/blob/main/models/transformer_example.ipynb)
-
-<p align="center"><img src="https://github.com/5121eun/dl/assets/121006954/3c14d275-9186-4373-ba9d-1de98cc91146"/></p>
 
 - [ViT Example](https://github.com/5121eun/dl/blob/main/vit_example.ipynb)
 
 <p align="center"><img src="https://github.com/5121eun/dl/assets/121006954/80e7c5bc-6ded-4e24-8e0a-7b240d8c4981"/></p>
+
+
+- [VAE Example](https://github.com/5121eun/models/blob/main/models/transformer_example.ipynb)
+
+<p align="center"><img src="https://github.com/5121eun/dl/assets/121006954/3c14d275-9186-4373-ba9d-1de98cc91146"/></p>
+
+
 
 
