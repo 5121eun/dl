@@ -7,7 +7,7 @@
 
 ## Installing
 ```
-pip install git+https://github.com/5121eun/models
+pip install git+https://github.com/5121eun/dl
 ```
 
 ## Example
