@@ -4,8 +4,8 @@
 # In[1]:
 
 
-from models.vit import ViT
-from models.gpt import GPT
-from models.bert import Bert
-from models.vae import VAE
-from models.transformer import Transformer
+from dl.models.vit import ViT
+from dl.models.gpt import GPT
+from dl.models.bert import Bert
+from dl.models.vae import VAE
+from dl.models.transformer import Transformer
