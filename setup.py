@@ -6,7 +6,7 @@ from setuptools import setup, find_packages
 setup(
     name='dl',
     packages = find_packages(),
-    version='0.1.4',
+    version='0.1.5',
     url='https://github.com/5121eun/dl.git',
     install_requires=[
         'torch'
