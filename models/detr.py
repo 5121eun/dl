@@ -39,7 +39,7 @@ def iou(bboxes1, bboxes2):
     inter_y1 = torch.max(y1, dim=0).values
     inter_y2= torch.min(y2, dim=0).values
     
-    if (inter_x2 - inter_x1 > 0) or (inter_y2 - inter_y1 < 0):
+    if (inter_x1 > inter_x2) or (inter_y1 > inter_y2):
         return 0
     
     inter = (inter_x2 - inter_x1) * (inter_y2 - inter_y1)
