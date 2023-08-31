@@ -127,30 +127,37 @@ class DETRTransformer(nn.Module):
         return out
     
 class DETR(nn.Module):
-    def __init__(self, num_classes, backbone, hidden_dim, nheads, 
-        num_encoder_layers, num_decoder_layers):
+    def __init__(self, backbone, backbone_dim: int, n_cls: int, n_query: int, dim: int, nheads: int, enc_depth: int, dec_depth):
         super().__init__()
+
         self.backbone = backbone
-        self.conv = nn.Conv2d(2048, hidden_dim, 1)
+        self.conv = nn.Conv2d(backbone_dim, dim, 1)
 
-        self.query_pos = nn.Parameter(torch.rand(100, hidden_dim))
+        self.query_pos = nn.Parameter(torch.rand(n_query, dim))
         
-        self.row_embed = nn.Parameter(torch.rand(50, hidden_dim // 2))
-        self.col_embed = nn.Parameter(torch.rand(50, hidden_dim // 2))
+        self.row_embed = nn.Parameter(torch.rand(n_query // 2, dim // 2))
+        self.col_embed = nn.Parameter(torch.rand(n_query // 2, dim // 2))
         
-        self.transformer = DETRTransformer(num_encoder_layers, num_decoder_layers, nheads, hidden_dim)
+        self.transformer = DETRTransformer(enc_depth, dec_depth, nheads, dim)
 
-        self.linear_class = nn.Linear(hidden_dim, num_classes + 1)
-        self.linear_bbox = nn.Linear(hidden_dim, 4)
+        self.ln_cls = nn.Linear(dim, n_cls + 1)
+        self.ln_bbox = nn.Linear(dim, 4)
 
     def forward(self, inputs):
         x = self.backbone(inputs)
         h = self.conv(x)
+        
         H, W = h.shape[-2:]
+        
         pos = torch.cat([
                 self.col_embed[:W].unsqueeze(0).repeat(H, 1, 1),
                 self.row_embed[:H].unsqueeze(1).repeat(1, W, 1),
             ], dim=-1).flatten(0, 1).unsqueeze(0)
+        
         h = self.transformer(h.flatten(2).permute(0, 2, 1),
-        self.query_pos.unsqueeze(0).repeat(x.shape[0], 1, 1), pos)
-        return F.softmax(self.linear_class(h), -1), self.linear_bbox(h).sigmoid()
+            self.query_pos.unsqueeze(0).repeat(x.shape[0], 1, 1), pos)
+        
+        out_cls = F.softmax(self.ln_cls(h), -1)
+        out_bbox = F.sigmoid(self.ln_bbox(h))
+        
+        return out_cls, out_bbox
