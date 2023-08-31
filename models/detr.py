@@ -17,7 +17,6 @@ def get_loss(no_object_idx, bboxes1, bboxes2, logits, idxs, gamma_iou, gamma_box
             for j in range(len(bboxes2)):
                 ls = - torch.log(p_c) + get_box_loss(bboxes1[i].unsqueeze(0), bboxes2[j].unsqueeze(0), gamma_iou, gamma_box)
                 cost_mat[i, j] = ls
-                print(ls)
     row_idx, col_idx = linear_sum_assignment(cost_mat.detach().numpy())
     return cost_mat[row_idx, col_idx].sum()
 
