@@ -4,6 +4,7 @@
 - [BERT](https://github.com/5121eun/models/blob/main/models/bert.py)
 - [ViT](https://github.com/5121eun/models/blob/main/models/vit.py)
 - [VAE](https://github.com/5121eun/dl/blob/main/models/vae.py)
+- [MAE](https://github.com/5121eun/dl/blob/main/models/mae.py)
 
 ## Installation
 ```
@@ -35,6 +36,9 @@ O: 2003-03-25
 
 <p align="center"><img src="https://github.com/5121eun/dl/assets/121006954/3c14d275-9186-4373-ba9d-1de98cc91146"/></p>
 
+- [MAE Example](https://github.com/5121eun/dl/blob/main/mae_example.ipynb)
+
+<p align="center"><img src="https://github.com/5121eun/dl/assets/121006954/233748d6-a3e2-44db-bbfe-cef5b06ddaaf"/></p>
 
 
 
