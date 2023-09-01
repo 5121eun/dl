@@ -5,65 +5,83 @@ import torch.nn.functional as F
 from models.transformer import *
 from scipy.optimize import linear_sum_assignment
 
-def get_loss(no_object_idx, bboxes1, bboxes2, logits, idxs, gamma_iou, gamma_box):
-    cost_mat = torch.zeros(len(bboxes1), len(bboxes2))
-    for i in range(len(bboxes1)):
-        p_c = logits[i][idxs[i]]
+def get_loss(no_c, logits, idxs_c, bboxes_tg, bboxes_y, l_iou, l_box):
+    idxs_c = idxs_c[idxs_c!=no_c]
+    n_cls_bboxes = len(idxs_c)
 
-        if idxs[i] == no_object_idx:
-            ls = - p_c / 10
-            cost_mat[i] = ls
-        else:
-            for j in range(len(bboxes2)):
-                ls = - torch.log(p_c) + get_box_loss(bboxes1[i].unsqueeze(0), bboxes2[j].unsqueeze(0), gamma_iou, gamma_box)
-                cost_mat[i, j] = ls
-    row_idx, col_idx = linear_sum_assignment(cost_mat.detach().numpy())
-    return cost_mat[row_idx, col_idx].sum()
-
-def iou(bboxes1, bboxes2):
-    bboxes1_x1, bboxes1_x2 = bboxes1[:, 0], bboxes1[:, 0] + bboxes1[:, 2]
-    bboxes2_x1, bboxes2_x2 = bboxes2[:, 0], bboxes2[:, 0] + bboxes2[:, 2]
-
-    x1 = torch.stack([bboxes1_x1, bboxes2_x1])
-    x2 = torch.stack([bboxes1_x2, bboxes2_x2])
-
-    bboxes1_y1, bboxes1_y2 = bboxes1[:, 1], bboxes1[:, 1] + bboxes1[:, 3]
-    bboxes2_y1, bboxes2_y2 = bboxes2[:, 1], bboxes2[:, 1] + bboxes2[:, 3]
-
-    y1 = torch.stack([bboxes1_y1, bboxes2_y1])
-    y2 = torch.stack([bboxes1_y2, bboxes2_y2])
-
-    inter_x1 = torch.max(x1, dim=0).values
-    inter_x2= torch.min(x2, dim=0).values
-
-    inter_y1 = torch.max(y1, dim=0).values
-    inter_y2= torch.min(y2, dim=0).values
+    logits_c = logits.unsqueeze(0).repeat(n_cls_bboxes, 1, 1)
+    logits_c = logits_c[list(range(n_cls_bboxes)), :, idxs_c]
     
-    if (inter_x1 > inter_x2) or (inter_y1 > inter_y2):
-        return 0
+    bboxes_tg = bboxes_tg[bboxes_tg != -1].view(-1, 4)
+    n_query = bboxes_y.shape[0]
     
-    inter = (inter_x2 - inter_x1) * (inter_y2 - inter_y1)
+    bboxes_tg = bboxes_tg.unsqueeze(1).repeat(1, n_query, 1)
+    bboxes_y = bboxes_y.unsqueeze(0).repeat(bboxes_tg.shape[0], 1, 1)
+    
+    ls_box = get_box_loss(bboxes_tg , bboxes_y, l_iou, l_box)
+    ls_match = - logits_c + ls_box
+    
+    row_idx, col_idx = linear_sum_assignment(ls_match.detach().numpy())
+    
+    ls = - torch.log(logits_c) + ls_box
+    ls_c = ls[row_idx, col_idx].sum()
+    
+    no_c_idxs = list(set(range(n_query)) - set(col_idx))
+    ls_no_c = - logits[no_c_idxs, -1].sum() / 10
+    
+    return ls_c + ls_no_c
 
-    bbox1_area = bboxes1[:, 2] * bboxes1[:, 3]
-    bbox2_area = bboxes2[:, 2] * bboxes2[:, 3]
+def get_iou(bboxes_tg, bboxes_y):
     
-    union = (bbox1_area + bbox2_area) - inter
+    bboxes_tg_x1, bboxes_tg_x2 = bboxes_tg[:, :, 0], bboxes_tg[:, :, 0] + bboxes_tg[:, :, 2]
+    bboxes_y_x1, bboxes_y_x2 = bboxes_y[:, :, 0], bboxes_y[:, :, 0] + bboxes_y[:, :, 2]
+
+    x1 = torch.stack([bboxes_tg_x1, bboxes_y_x1], dim=-1)
+    x2 = torch.stack([bboxes_tg_x2, bboxes_y_x2], dim=-1)
+
+    bboxes_tg_y1, bboxes_tg_y2 = bboxes_tg[:, :, 1], bboxes_tg[:, :, 1] + bboxes_tg[:, :, 3]
+    bboxes_y_y1, bboxes_y_y2 = bboxes_y[:, :, 1], bboxes_y[:, :, 1] + bboxes_y[:, :, 3]
+
+    y1 = torch.stack([bboxes_tg_y1, bboxes_y_y1], dim=-1)
+    y2 = torch.stack([bboxes_tg_y2, bboxes_y_y2], dim=-1)
+    
+    inter_x1 = torch.max(x1, dim=-1).values
+    inter_x2= torch.min(x2, dim=-1).values
+
+    inter_y1 = torch.max(y1, dim=-1).values
+    inter_y2= torch.min(y2, dim=-1).values
+    
+    inter_w = inter_x2 - inter_x1
+    inter_h = inter_y2 - inter_y1
+    
+    inter_w[inter_w < 0] = 0
+    inter_h[inter_h < 0] = 0
+    
+    inter = inter_w * inter_h
+    
+    bboxes_tg_area = bboxes_tg[:, :, 2] * bboxes_tg[:, :, 3]
+    bboxes_y_area = bboxes_y[:, :, 2] * bboxes_y[:, :, 3]
+
+    union = (bboxes_tg_area + bboxes_y_area) - inter
     iou = inter / union
     
-    b_x1 = torch.min(x1)
-    b_x2= torch.max(x2)
+    b_x1 = torch.min(x1, dim=-1).values
+    b_x2= torch.max(x2, dim=-1).values
 
-    b_y1 = torch.min(y1)
-    b_y2= torch.max(y2)
+    b_y1 = torch.min(y1, dim=-1).values
+    b_y2= torch.max(y2, dim=-1).values
     
     b_area = (b_x2 - b_x1) * (b_y2 - b_y1)
+    
     return 1 - iou - ((b_area - union) / b_area)
 
-def get_box_loss(box1, box2, gamma_iou, gamma_box):
-
-    ls_iou = iou(box1, box2)
-    ls_box = gamma_iou * ls_iou + gamma_box * F.l1_loss(box2, box1)
-
+def get_box_loss(bboxes_tg, bboxes_y, l_iou, l_box):
+    n_cls_bboxes = bboxes_tg.shape[0]
+    
+    ls_iou = get_iou(bboxes_tg, bboxes_y) / n_cls_bboxes
+    ls_l1 = torch.abs(bboxes_tg - bboxes_y).sum(-1) / n_cls_bboxes
+    ls_box = (l_iou * ls_iou) + (l_box * ls_l1)
+    
     return ls_box
 
 class DETREncoder(nn.Module):
