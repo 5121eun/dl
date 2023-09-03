@@ -115,16 +115,16 @@ class DETRDecoder(nn.Module):
         self.ff = FeedForward(d_model, d_ff)
         self.ln3 = nn.LayerNorm(d_model)
         
-    def forward(self, x: Tensor, enc_out: Tensor, pe):
+    def forward(self, x: Tensor, enc_out: Tensor, t, pe):
 
-        out = self.ln1(x + self.mha1(x, x, x))
-        out = self.ln2(out + self.mha2(q=out, k=enc_out + pe, v=enc_out))
-        out = self.ln2(out + self.ff(out))
+        out = self.ln1(x + self.mha1(x + t, x + t, x))
+        out = self.ln2(out + self.mha2(q=out + t, k=enc_out + pe, v=enc_out))
+        out = self.ln3(out + self.ff(out))
         
         return out
     
 class DETRTransformer(nn.Module):
-    def __init__(self, enc_depth: int, dec_depth: int, nheads: int, dim: int):
+    def __init__(self, n_cls: int, enc_depth: int, dec_depth: int, nheads: int, dim: int):
         super(DETRTransformer, self).__init__()
         
         self.encoders = nn.ModuleList(
@@ -134,15 +134,34 @@ class DETRTransformer(nn.Module):
             [DETRDecoder(dim, nheads,  dim * 4) for _ in range(dec_depth)]
         )
         
+        self.ff_cls = nn.Sequential(
+            nn.Linear(dim, dim),
+            nn.ReLU(),
+            nn.Linear(dim, n_cls + 1),
+        )
+        self.ff_cls_ln = nn.LayerNorm(n_cls + 1)
+        
+        self.ff_bbox = nn.Sequential(
+            nn.Linear(dim, dim),
+            nn.ReLU(),
+            nn.Linear(dim, 4),
+        )
+        self.ff_bbox_ln = nn.LayerNorm(4)
+        
     def forward(self, x, t, pe):
         enc_out = x
         for encoder in self.encoders:
             enc_out = encoder(enc_out, pe)
         
+        outs = []
         out = t
         for decoder in self.decoders:
-            out = decoder(out, enc_out, pe)
-        return out
+            out = decoder(out, enc_out, t, pe)
+            cls_out = F.softmax(self.ff_cls_ln(self.ff_cls(out)), -1)
+            bbox_out = F.sigmoid(self.ff_bbox_ln(self.ff_bbox(out)))
+            outs.append((cls_out, bbox_out))
+                    
+        return outs    
     
 class DETR(nn.Module):
     def __init__(self, backbone, backbone_dim: int, n_cls: int, n_query: int, dim: int, nheads: int, enc_depth: int, dec_depth):
@@ -156,10 +175,8 @@ class DETR(nn.Module):
         self.row_embed = nn.Parameter(torch.rand(n_query // 2, dim // 2))
         self.col_embed = nn.Parameter(torch.rand(n_query // 2, dim // 2))
         
-        self.transformer = DETRTransformer(enc_depth, dec_depth, nheads, dim)
+        self.transformer = DETRTransformer(n_cls, enc_depth, dec_depth, nheads, dim)
 
-        self.ln_cls = nn.Linear(dim, n_cls + 1)
-        self.ln_bbox = nn.Linear(dim, 4)
 
     def forward(self, inputs):
         x = self.backbone(inputs)
@@ -172,10 +189,7 @@ class DETR(nn.Module):
                 self.row_embed[:H].unsqueeze(1).repeat(1, W, 1),
             ], dim=-1).flatten(0, 1).unsqueeze(0)
         
-        h = self.transformer(h.flatten(2).permute(0, 2, 1),
+        outs = self.transformer(h.flatten(2).permute(0, 2, 1),
             self.query_pos.unsqueeze(0).repeat(x.shape[0], 1, 1), pos)
         
-        out_cls = F.softmax(self.ln_cls(h), -1)
-        out_bbox = F.sigmoid(self.ln_bbox(h))
-        
-        return out_cls, out_bbox
+        return outs
