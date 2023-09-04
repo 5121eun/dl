@@ -27,7 +27,7 @@ def get_loss(no_c, logits, idxs_c, bboxes_tg, bboxes_y, l_iou, l_box):
     ls_c = ls[row_idx, col_idx].sum()
     
     no_c_idxs = list(set(range(n_query)) - set(col_idx))
-    ls_no_c = - logits[no_c_idxs, -1].sum() / 10
+    ls_no_c = - torch.log(logits[no_c_idxs, -1]).sum() / 10
     
     return ls_c + ls_no_c
 
