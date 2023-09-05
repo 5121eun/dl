@@ -31,19 +31,16 @@ def get_loss(no_c, logits, idxs_c, bboxes_tg, bboxes_y, l_iou, l_box):
     
     return ls_c + ls_no_c
 
-def get_iou(bboxes_tg, bboxes_y):
+def get_giou(bboxes_tg, bboxes_y):
     
-    bboxes_tg_x1, bboxes_tg_x2 = bboxes_tg[:, :, 0], bboxes_tg[:, :, 0] + bboxes_tg[:, :, 2]
-    bboxes_y_x1, bboxes_y_x2 = bboxes_y[:, :, 0], bboxes_y[:, :, 0] + bboxes_y[:, :, 2]
+    tg_x1, tg_y1, tg_w, tg_h = bboxes_tg.unbind(dim=-1)
+    sc_x1, sc_y1, sc_w, sc_h = bboxes_y.unbind(dim=-1)
 
-    x1 = torch.stack([bboxes_tg_x1, bboxes_y_x1], dim=-1)
-    x2 = torch.stack([bboxes_tg_x2, bboxes_y_x2], dim=-1)
+    x1 = torch.stack([tg_x1, sc_x1], dim=-1)
+    x2 = torch.stack([tg_x1 + tg_w, sc_x1 + sc_w], dim=-1)
 
-    bboxes_tg_y1, bboxes_tg_y2 = bboxes_tg[:, :, 1], bboxes_tg[:, :, 1] + bboxes_tg[:, :, 3]
-    bboxes_y_y1, bboxes_y_y2 = bboxes_y[:, :, 1], bboxes_y[:, :, 1] + bboxes_y[:, :, 3]
-
-    y1 = torch.stack([bboxes_tg_y1, bboxes_y_y1], dim=-1)
-    y2 = torch.stack([bboxes_tg_y2, bboxes_y_y2], dim=-1)
+    y1 = torch.stack([tg_y1, sc_y1], dim=-1)
+    y2 = torch.stack([tg_y1 + tg_h, sc_y1 + sc_h], dim=-1)
     
     inter_x1 = torch.max(x1, dim=-1).values
     inter_x2= torch.min(x2, dim=-1).values
@@ -59,12 +56,12 @@ def get_iou(bboxes_tg, bboxes_y):
     
     inter = inter_w * inter_h
     
-    bboxes_tg_area = bboxes_tg[:, :, 2] * bboxes_tg[:, :, 3]
-    bboxes_y_area = bboxes_y[:, :, 2] * bboxes_y[:, :, 3]
+    bboxes_tg_area = tg_w * tg_h
+    bboxes_y_area = sc_w * sc_h
 
     union = (bboxes_tg_area + bboxes_y_area) - inter
     iou = inter / union
-    
+
     b_x1 = torch.min(x1, dim=-1).values
     b_x2= torch.max(x2, dim=-1).values
 
@@ -72,13 +69,12 @@ def get_iou(bboxes_tg, bboxes_y):
     b_y2= torch.max(y2, dim=-1).values
     
     b_area = (b_x2 - b_x1) * (b_y2 - b_y1)
-    
-    return 1 - iou - ((b_area - union) / b_area)
+    return 1 - (iou - ((b_area - union) / b_area))
 
 def get_box_loss(bboxes_tg, bboxes_y, l_iou, l_box):
     n_cls_bboxes = bboxes_tg.shape[0]
     
-    ls_iou = get_iou(bboxes_tg, bboxes_y) / n_cls_bboxes
+    ls_iou = get_giou(bboxes_tg, bboxes_y) / n_cls_bboxes
     ls_l1 = torch.abs(bboxes_tg - bboxes_y).sum(-1) / n_cls_bboxes
     ls_box = (l_iou * ls_iou) + (l_box * ls_l1)
     
