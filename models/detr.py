@@ -1,84 +1,60 @@
+import sys
+sys.path.append('..')
+
 import torch
 from torch import nn
 import torch.nn.functional as F
 
 from models.transformer import *
 from scipy.optimize import linear_sum_assignment
+from commons.utils import get_giou, xywh_to_cxcywh
 
-def get_loss(no_c, logits, idxs_c, bboxes_tg, bboxes_y, l_iou, l_box):
-    idxs_c = idxs_c[idxs_c!=no_c]
-    n_cls_bboxes = len(idxs_c)
+class DETRCriteron(nn.Module):
+    def __init__(self, n_query: int, l_giou: float, l_box: float, ls_giou_w: float = 20):
+        super(DETRCriteron, self).__init__()
+        
+        self.n_query = n_query
+        self.l_giou = l_giou
+        self.l_box = l_box
+        self.ls_giou_w = ls_giou_w
+        
+    def get_box_loss(self, gt_b, pd_b, n_obj_b):
+        
+        ls_giou = get_giou(gt_b, pd_b) / n_obj_b
+        
+        gt_b, pd_b = [xywh_to_cxcywh(b) for b in [gt_b, pd_b]]
+        ls_l1 = torch.abs(gt_b - pd_b).sum(-1) / n_obj_b
+        
+        ls_box = (self.l_giou * ls_giou) * self.ls_giou_w + (self.l_box * ls_l1)
+        return ls_box
+        
+    def get_p_c(self, idx, logits):
+        n_query = self.n_query
+        
+        idxs = idx.unsqueeze(1).repeat(1, n_query)
+        arange = torch.arange(n_query)
+        
+        p_c = logits.unsqueeze(0).repeat(n_query, 1, 1)[arange, arange, idxs]
+        
+        return p_c
+    
+    def forward(self, idx, logits, gt_b, pd_b, n_obj_b):
+        n_query = self.n_query
+        
+        gt_b = gt_b.unsqueeze(1).repeat(1, n_query, 1)
+        pd_b = pd_b.unsqueeze(0).repeat(n_query, 1, 1)
+    
+        p_c = self.get_p_c(idx, logits)
+        ls_box = self.get_box_loss(gt_b, pd_b, n_obj_b)
+        
+        ls_match = (1 - p_c) + ls_box
+        
+        row_idx, col_idx = linear_sum_assignment(ls_match.clone().detach().cpu())
+        
+        ls = - torch.log(p_c) + ls_box
+        ls = ls[row_idx, col_idx]
 
-    logits_c = logits.unsqueeze(0).repeat(n_cls_bboxes, 1, 1)
-    logits_c = logits_c[list(range(n_cls_bboxes)), :, idxs_c]
-    
-    bboxes_tg = bboxes_tg[bboxes_tg != -1].view(-1, 4)
-    n_query = bboxes_y.shape[0]
-    
-    bboxes_tg = bboxes_tg.unsqueeze(1).repeat(1, n_query, 1)
-    bboxes_y = bboxes_y.unsqueeze(0).repeat(bboxes_tg.shape[0], 1, 1)
-    
-    ls_box = get_box_loss(bboxes_tg , bboxes_y, l_iou, l_box)
-    ls_match = - logits_c + ls_box
-    
-    row_idx, col_idx = linear_sum_assignment(ls_match.detach().numpy())
-    
-    ls = - torch.log(logits_c) + ls_box
-    ls_c = ls[row_idx, col_idx].sum()
-    
-    no_c_idxs = list(set(range(n_query)) - set(col_idx))
-    ls_no_c = - torch.log(logits[no_c_idxs, -1]).sum() / 10
-    
-    return ls_c + ls_no_c
-
-def get_giou(bboxes_tg, bboxes_y):
-    
-    tg_x1, tg_y1, tg_w, tg_h = bboxes_tg.unbind(dim=-1)
-    sc_x1, sc_y1, sc_w, sc_h = bboxes_y.unbind(dim=-1)
-
-    x1 = torch.stack([tg_x1, sc_x1], dim=-1)
-    x2 = torch.stack([tg_x1 + tg_w, sc_x1 + sc_w], dim=-1)
-
-    y1 = torch.stack([tg_y1, sc_y1], dim=-1)
-    y2 = torch.stack([tg_y1 + tg_h, sc_y1 + sc_h], dim=-1)
-    
-    inter_x1 = torch.max(x1, dim=-1).values
-    inter_x2= torch.min(x2, dim=-1).values
-
-    inter_y1 = torch.max(y1, dim=-1).values
-    inter_y2= torch.min(y2, dim=-1).values
-    
-    inter_w = inter_x2 - inter_x1
-    inter_h = inter_y2 - inter_y1
-    
-    inter_w[inter_w < 0] = 0
-    inter_h[inter_h < 0] = 0
-    
-    inter = inter_w * inter_h
-    
-    bboxes_tg_area = tg_w * tg_h
-    bboxes_y_area = sc_w * sc_h
-
-    union = (bboxes_tg_area + bboxes_y_area) - inter
-    iou = inter / union
-
-    b_x1 = torch.min(x1, dim=-1).values
-    b_x2= torch.max(x2, dim=-1).values
-
-    b_y1 = torch.min(y1, dim=-1).values
-    b_y2= torch.max(y2, dim=-1).values
-    
-    b_area = (b_x2 - b_x1) * (b_y2 - b_y1)
-    return 1 - (iou - ((b_area - union) / b_area))
-
-def get_box_loss(bboxes_tg, bboxes_y, l_iou, l_box):
-    n_cls_bboxes = bboxes_tg.shape[0]
-    
-    ls_iou = get_giou(bboxes_tg, bboxes_y) / n_cls_bboxes
-    ls_l1 = torch.abs(bboxes_tg - bboxes_y).sum(-1) / n_cls_bboxes
-    ls_box = (l_iou * ls_iou) + (l_box * ls_l1)
-    
-    return ls_box
+        return ls
 
 class DETREncoder(nn.Module):
     def __init__(self, d_model: int, nheads: int, d_ff: int):
