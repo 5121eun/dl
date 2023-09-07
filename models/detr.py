@@ -38,7 +38,7 @@ class DETRLoss(nn.Module):
         
         return p_c
     
-    def forward(self, idx, logits, gt_b, pd_b, n_obj_b):
+    def forward(self, idx, logits, gt_b, pd_b, n_obj_b, row_idx=None, col_idx=None):
         n_query = self.n_query
         
         gt_b = gt_b.unsqueeze(1).repeat(1, n_query, 1)
@@ -49,12 +49,13 @@ class DETRLoss(nn.Module):
         
         ls_match = (1 - p_c) + ls_box
         
-        row_idx, col_idx = linear_sum_assignment(ls_match.clone().detach().cpu())
+        if row_idx is None:
+            row_idx, col_idx = linear_sum_assignment(ls_match.clone().detach().cpu())
         
         ls = - torch.log(p_c) + ls_box
         ls = ls[row_idx, col_idx]
 
-        return ls
+        return ls, row_idx, col_idx
 
 class DETREncoder(nn.Module):
     def __init__(self, d_model: int, nheads: int, d_ff: int):
