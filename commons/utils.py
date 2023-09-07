@@ -66,3 +66,14 @@ def cxcywh_to_xywh(b):
     y = cy - h/2
     
     return torch.stack((x, y, w, h), -1)
+
+def cxcywh_to_xyxy(b):
+    cx, cy, w, h  = b.unbind(-1)
+    
+    x1 = cx - w/2
+    y1 = cy - h/2
+    
+    x2 = cx + w/2
+    y2 = cy + h/2
+    
+    return torch.stack((x1, y1, x2, y2), -1)
