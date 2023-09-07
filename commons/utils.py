@@ -2,14 +2,14 @@ import torch
 
 def get_giou(gt_b, pd_b):
     
-    tg_x1, tg_y1, tg_w, tg_h = gt_b.unbind(dim=-1)
-    sc_x1, sc_y1, sc_w, sc_h = pd_b.unbind(dim=-1)
+    tg_x1, tg_y1, tg_x2, tg_y2 = gt_b.unbind(dim=-1)
+    sc_x1, sc_y1, sc_x2, sc_y2 = pd_b.unbind(dim=-1)
 
     x1 = torch.stack([tg_x1, sc_x1], dim=-1)
-    x2 = torch.stack([tg_x1 + tg_w, sc_x1 + sc_w], dim=-1)
+    x2 = torch.stack([tg_x2, sc_x2], dim=-1)
 
     y1 = torch.stack([tg_y1, sc_y1], dim=-1)
-    y2 = torch.stack([tg_y1 + tg_h, sc_y1 + sc_h], dim=-1)
+    y2 = torch.stack([tg_y2, sc_y2], dim=-1)
     
     inter_x1 = torch.max(x1, dim=-1).values
     inter_x2= torch.min(x2, dim=-1).values
@@ -25,8 +25,8 @@ def get_giou(gt_b, pd_b):
     
     inter = inter_w * inter_h
     
-    gt_b_area = tg_w * tg_h
-    pd_b_area = sc_w * sc_h
+    gt_b_area = (tg_x2 - tg_x1) * (tg_y2 - tg_y1)
+    pd_b_area = (sc_x2 - sc_x1) * (sc_y2 - sc_y1)
 
     union = (gt_b_area + pd_b_area) - inter
     iou = inter / union
@@ -40,10 +40,29 @@ def get_giou(gt_b, pd_b):
     b_area = (b_x2 - b_x1) * (b_y2 - b_y1)
     return 1 - (iou - ((b_area - union) / b_area))
 
-def xywh_to_cxcywh(b: torch.Tensor):
-    x, y, w, h = b.unbind(-1)
+def xyxy_to_cxcywh(b):
+    x1, y1, x2, y2  = b.unbind(-1)
     
-    ct_x = x + (w/2)
-    ct_y = y + (h/2)
+    w = x2 - x1
+    h = y2 - y1
     
-    return torch.stack((ct_x, ct_y, w, h), -1)
+    cx = x1 + w/2
+    cy = y1 + h/2
+
+    return torch.stack((cx, cy, w, h), -1)
+
+def xywh_to_cxcywh(b):
+    x, y, w, h  = b.unbind(-1)
+    
+    cx = x + w/2
+    cy = y + h/2
+    
+    return torch.stack((cx, cy, w, h), -1)
+
+def cxcywh_to_xywh(b):
+    cx, cy, w, h  = b.unbind(-1)
+    
+    x = cx - w/2
+    y = cy - h/2
+    
+    return torch.stack((x, y, w, h), -1)
