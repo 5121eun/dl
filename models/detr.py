@@ -7,11 +7,11 @@ import torch.nn.functional as F
 
 from models.transformer import *
 from scipy.optimize import linear_sum_assignment
-from commons.utils import get_giou, xywh_to_cxcywh
+from commons.utils import get_giou, cxcywh_to_xyxy
 
-class DETRCriteron(nn.Module):
+class DETRLoss(nn.Module):
     def __init__(self, n_query: int, l_giou: float, l_box: float, ls_giou_w: float = 20):
-        super(DETRCriteron, self).__init__()
+        super(DETRLoss, self).__init__()
         
         self.n_query = n_query
         self.l_giou = l_giou
@@ -19,10 +19,10 @@ class DETRCriteron(nn.Module):
         self.ls_giou_w = ls_giou_w
         
     def get_box_loss(self, gt_b, pd_b, n_obj_b):
+        gt_b_xyxy, pd_b_xyxy = [cxcywh_to_xyxy(b) for b in [gt_b, pd_b]]
+
+        ls_giou = get_giou(gt_b_xyxy, pd_b_xyxy) / n_obj_b
         
-        ls_giou = get_giou(gt_b, pd_b) / n_obj_b
-        
-        gt_b, pd_b = [xywh_to_cxcywh(b) for b in [gt_b, pd_b]]
         ls_l1 = torch.abs(gt_b - pd_b).sum(-1) / n_obj_b
         
         ls_box = (self.l_giou * ls_giou) * self.ls_giou_w + (self.l_box * ls_l1)
