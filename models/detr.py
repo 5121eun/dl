@@ -1,13 +1,10 @@
-import sys
-sys.path.append('..')
-
 import torch
 from torch import nn
 import torch.nn.functional as F
 
 from models.transformer import *
 from scipy.optimize import linear_sum_assignment
-from commons.utils import get_giou, cxcywh_to_xyxy
+from commons.utils import get_giou
 
 class DETRLoss(nn.Module):
     def __init__(self, n_query: int, l_giou: float, l_box: float, ls_giou_w: float = 20):
