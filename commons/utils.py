@@ -2,14 +2,14 @@ import torch
 
 def get_giou(gt_b, pd_b):
     
-    tg_x1, tg_y1, tg_x2, tg_y2 = gt_b.unbind(dim=-1)
-    sc_x1, sc_y1, sc_x2, sc_y2 = pd_b.unbind(dim=-1)
+    gt_x1, gt_y1, gt_x2, gt_y2 = gt_b.unbind(dim=-1)
+    pd_x1, pd_y1, pd_x2, pd_y2 = pd_b.unbind(dim=-1)
 
-    x1 = torch.stack([tg_x1, sc_x1], dim=-1)
-    x2 = torch.stack([tg_x2, sc_x2], dim=-1)
+    x1 = torch.stack([gt_x1, pd_x1], dim=-1)
+    x2 = torch.stack([gt_x2, pd_x2], dim=-1)
 
-    y1 = torch.stack([tg_y1, sc_y1], dim=-1)
-    y2 = torch.stack([tg_y2, sc_y2], dim=-1)
+    y1 = torch.stack([gt_y1, pd_y1], dim=-1)
+    y2 = torch.stack([gt_y2, pd_y2], dim=-1)
     
     inter_x1 = torch.max(x1, dim=-1).values
     inter_x2= torch.min(x2, dim=-1).values
@@ -25,8 +25,8 @@ def get_giou(gt_b, pd_b):
     
     inter = inter_w * inter_h
     
-    gt_b_area = (tg_x2 - tg_x1) * (tg_y2 - tg_y1)
-    pd_b_area = (sc_x2 - sc_x1) * (sc_y2 - sc_y1)
+    gt_b_area = (gt_x2 - gt_x1) * (gt_y2 - gt_y1)
+    pd_b_area = (pd_x2 - pd_x1) * (pd_y2 - pd_y1)
 
     union = (gt_b_area + pd_b_area) - inter
     iou = inter / union
