@@ -28,31 +28,32 @@ class DETRLoss(nn.Module):
     def get_p_c(self, idx, logits):
         n_query = self.n_query
         
-        idxs = idx.unsqueeze(1).repeat(1, n_query)
+        idxs = torch.tensor(idx).unsqueeze(-1).repeat(1, 1, n_query)
         arange = torch.arange(n_query)
-        
-        p_c = logits.unsqueeze(0).repeat(n_query, 1, 1)[arange, arange, idxs]
+        p = logits.unsqueeze(1).repeat(1, n_query, 1, 1)
+        p_c = torch.stack([p[b, arange, arange, idxs[b]] for b in range(len(idxs))], 0)
         
         return p_c
     
-    def forward(self, idx, logits, gt_b, pd_b, n_obj_b, row_idx=None, col_idx=None):
+    def forward(self, idx, logits, gt_b, pd_b, n_obj_b):
         n_query = self.n_query
+        batch_size = len(idx)
         
-        gt_b = gt_b.unsqueeze(1).repeat(1, n_query, 1)
-        pd_b = pd_b.unsqueeze(0).repeat(n_query, 1, 1)
-    
         p_c = self.get_p_c(idx, logits)
+
+        gt_b = gt_b.unsqueeze(2).repeat(1, 1, n_query, 1)
+        pd_b = pd_b.unsqueeze(1).repeat(1, n_query, 1, 1)
+    
         ls_box = self.get_box_loss(gt_b, pd_b, n_obj_b)
         
         ls_match = (1 - p_c) + ls_box
         
-        if row_idx is None:
-            row_idx, col_idx = linear_sum_assignment(ls_match.clone().detach().cpu())
+        match_idx = [linear_sum_assignment(ls_match[b].clone().detach().cpu()) for b in range(batch_size)]
         
         ls = - torch.log(p_c) + ls_box
-        ls = ls[row_idx, col_idx]
+        ls = [ls[i, row_idx, col_idx] for i, (row_idx, col_idx) in enumerate(match_idx)]
 
-        return ls, row_idx, col_idx
+        return torch.stack(ls, 0)
 
 class DETREncoder(nn.Module):
     def __init__(self, d_model: int, nheads: int, d_ff: int):
