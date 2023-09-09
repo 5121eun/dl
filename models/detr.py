@@ -28,10 +28,10 @@ class DETRLoss(nn.Module):
     def get_p_c(self, idx, logits):
         n_query = self.n_query
         
-        idxs = torch.tensor(idx).unsqueeze(-1).repeat(1, 1, n_query)
+        idx = idx.unsqueeze(-1).repeat(1, 1, n_query)
         arange = torch.arange(n_query)
         p = logits.unsqueeze(1).repeat(1, n_query, 1, 1)
-        p_c = torch.stack([p[b, arange, arange, idxs[b]] for b in range(len(idxs))], 0)
+        p_c = torch.stack([p[b, arange, arange, idx[b]] for b in range(len(idx))], 0)
         
         return p_c
     
