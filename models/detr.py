@@ -35,7 +35,7 @@ class DETRLoss(nn.Module):
         
         return p_c
     
-    def forward(self, idx, logits, gt_b, pd_b, n_obj_b):
+    def forward(self, idx, logits, gt_b, pd_b, no_obj_c, n_obj_b):
         n_query = self.n_query
         batch_size = len(idx)
         
@@ -48,12 +48,18 @@ class DETRLoss(nn.Module):
         
         ls_match = (1 - p_c) + ls_box
         
-        match_idx = [linear_sum_assignment(ls_match[b].clone().detach().cpu()) for b in range(batch_size)]
+        match_idx = [linear_sum_assignment(ls_match[b][:len(idx[b][idx[b]<no_obj_c])].clone().detach().cpu()) for b in range(batch_size)]
         
         ls = - torch.log(p_c) + ls_box
-        ls = [ls[i, row_idx, col_idx] for i, (row_idx, col_idx) in enumerate(match_idx)]
-
-        return torch.stack(ls, 0)
+        
+        loss = 0
+        for i, (row_idx, col_idx) in enumerate(match_idx):
+            loss_c = ls[i, row_idx, col_idx]
+            col_idx_no_c = list(set(range(n_query)) - set(col_idx))
+            row_idx_no_c = list(set(range(n_query)) - set(row_idx))
+            loss_no_c = - torch.log(p_c[i, row_idx_no_c, col_idx_no_c]) / 10
+            loss += loss_c.sum() + loss_no_c.sum()
+        return loss
 
 class DETREncoder(nn.Module):
     def __init__(self, d_model: int, nheads: int, d_ff: int):
