@@ -34,8 +34,6 @@ class MultiHeadAttention(nn.Module):
         
         self.out = nn.Linear(d_model, d_model, bias=False)
         
-        self.out = nn.Linear(d_model, d_model, bias=False)
-        
         self.nheads = nheads
         
     def forward(self, q:Tensor, k:Tensor, v: Tensor, mask=None):
