@@ -2,7 +2,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-from models.transformer import *
+from models.layers import MultiHeadAttention, FeedForward
 from scipy.optimize import linear_sum_assignment
 from commons.utils import get_giou, cxcywh_to_xyxy
 
@@ -62,18 +62,18 @@ class DETRLoss(nn.Module):
         return loss
 
 class DETREncoder(nn.Module):
-    def __init__(self, d_model: int, nheads: int, d_ff: int):
+    def __init__(self, d_model: int, nheads: int, d_ff: int, window_size: int):
         super(DETREncoder, self).__init__()
         
-        self.mha = MultiHeadAttention(d_model, nheads)
+        self.mha = MultiHeadAttention(d_model, nheads, window_size)
         self.ln1 = nn.LayerNorm(d_model)
         
-        self.ff = FeedForward(d_model, d_ff)
+        self.ff = FeedForward(d_model, d_ff, nn.ReLU())
         self.ln2 = nn.LayerNorm(d_model)
         
-    def forward(self, x, pe):
+    def forward(self, x, pe, window=False):
 
-        out = self.ln1(x + self.mha(x + pe, x + pe, x))
+        out = self.ln1(x + self.mha(x + pe, x + pe, x, window=window))
         out = self.ln2(out + self.ff(out))
         
         return out
@@ -89,10 +89,10 @@ class DETRDecoder(nn.Module):
         self.mha2 = MultiHeadAttention(d_model, nheads)
         self.ln2 = nn.LayerNorm(d_model)
         
-        self.ff = FeedForward(d_model, d_ff)
+        self.ff = FeedForward(d_model, d_ff, nn.ReLU())
         self.ln3 = nn.LayerNorm(d_model)
         
-    def forward(self, x: Tensor, enc_out: Tensor, t, pe):
+    def forward(self, x, enc_out, t, pe):
 
         out = self.ln1(x + self.mha1(x + t, x + t, x))
         out = self.ln2(out + self.mha2(q=out + t, k=enc_out + pe, v=enc_out))
@@ -101,20 +101,22 @@ class DETRDecoder(nn.Module):
         return out
     
 class DETRTransformer(nn.Module):
-    def __init__(self, n_cls: int, enc_depth: int, dec_depth: int, nheads: int, dim: int):
+    def __init__(self, n_cls: int, enc_depth: int, dec_depth: int, nheads: int, dim: int, window_size: int, global_attn_iter: int):
         super(DETRTransformer, self).__init__()
         
         self.encoders = nn.ModuleList(
-            [DETREncoder(dim, nheads, dim * 4) for _ in range(enc_depth)]
+            [DETREncoder(dim, nheads, dim * 4, window_size) for _ in range(enc_depth)]
         )
         self.decoders = nn.ModuleList(
             [DETRDecoder(dim, nheads,  dim * 4) for _ in range(dec_depth)]
         )
+
+        self.global_attn_iter = global_attn_iter
                 
     def forward(self, x, t, pe):
         enc_out = x
-        for encoder in self.encoders:
-            enc_out = encoder(enc_out, pe)
+        for i, enc in enumerate(self.encoders):
+            enc_out = enc(enc_out, pe, (i + 1) % self.global_attn_iter != 0)
         
         out = t
         for decoder in self.decoders:
@@ -123,7 +125,7 @@ class DETRTransformer(nn.Module):
         return out   
     
 class DETR(nn.Module):
-    def __init__(self, backbone, backbone_dim: int, n_cls: int, x_len: int, n_query: int, dim: int, nheads: int, enc_depth: int, dec_depth):
+    def __init__(self, backbone, backbone_dim: int, n_cls: int, x_len: int, n_query: int, dim: int, nheads: int, enc_depth: int, dec_depth, window_size=0, global_attn_iter=1):
         super().__init__()
 
         self.backbone = backbone
@@ -134,19 +136,17 @@ class DETR(nn.Module):
         self.row_embed = nn.Parameter(torch.rand(x_len // 2, dim // 2))
         self.col_embed = nn.Parameter(torch.rand(x_len // 2, dim // 2))
         
-        self.transformer = DETRTransformer(n_cls, enc_depth, dec_depth, nheads, dim)
+        self.transformer = DETRTransformer(n_cls, enc_depth, dec_depth, nheads, dim, window_size, global_attn_iter)
         
-        self.ff_cls = nn.Sequential(
-            nn.Linear(dim, dim),
-            nn.ReLU(),
-            nn.Linear(dim, n_cls + 1),
-        )
+        self.ff_cls = nn.Linear(dim, n_cls + 1)
         self.ff_cls_ln = nn.LayerNorm(n_cls + 1)
         
         self.ff_bbox = nn.Sequential(
-            nn.Linear(dim, dim),
+            nn.Linear(dim, dim * 4),
             nn.ReLU(),
-            nn.Linear(dim, 4),
+            nn.Linear(dim * 4, dim * 4),
+            nn.ReLU(),
+            nn.Linear(dim * 4, 4),
         )
         self.ff_bbox_ln = nn.LayerNorm(4)
 
