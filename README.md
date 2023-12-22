@@ -43,5 +43,5 @@ O: 2003-03-25
 
 - [DETR Example](https://github.com/5121eun/dl/blob/main/detr_example.ipynb)
   
-<p align="center"><img src="https://github.com/5121eun/dl/assets/121006954/cbc16f20-6de6-455f-a876-0adb6bf0c5e1"/></p>
+<p align="center"><img src="https://github.com/5121eun/dl/assets/121006954/4021293c-630e-4fa0-8021-561cddf8fd72"/></p>
 
