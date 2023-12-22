@@ -41,7 +41,7 @@ O: 2003-03-25
 
 <p align="center"><img src="https://github.com/5121eun/dl/assets/121006954/233748d6-a3e2-44db-bbfe-cef5b06ddaaf"/></p>
 
-- [DETR Example](https://github.com/5121eun/dl/blob/main/detr_example.ipynb)
+- [DETR Example](https://github.com/5121eun/dl/blob/main/detr_example.ipynb)([Description](https://github.com/5121eun/dl/blob/main/description/DETR_Fruit_Detector.pdf))
   
 <p align="center"><img src="https://github.com/5121eun/dl/assets/121006954/4021293c-630e-4fa0-8021-561cddf8fd72"/></p>
 
