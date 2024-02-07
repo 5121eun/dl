@@ -7,11 +7,6 @@
 - [MAE](https://github.com/5121eun/dl/blob/main/models/mae.py)
 - [DETR](https://github.com/5121eun/dl/blob/main/models/detr.py)
 
-## Installation
-```
-pip install git+https://github.com/5121eun/dl
-```
-
 ## Example
 - [Transformer Example](https://github.com/5121eun/models/blob/main/models/transformer_example.ipynb)
 ```
