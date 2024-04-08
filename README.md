@@ -8,7 +8,7 @@
 - [DETR](https://github.com/5121eun/dl/blob/main/models/detr.py)
 
 ## Example
-- [Transformer Example](https://github.com/5121eun/models/blob/main/models/transformer_example.ipynb)
+- [Transformer Example](https://github.com/5121eun/dl/blob/main/transformer_example.ipynb)
 ```
 Q: 10/15/94                     
 T: 1994-10-15
@@ -28,7 +28,7 @@ O: 2003-03-25
 <p align="center"><img src="https://github.com/5121eun/dl/assets/121006954/80e7c5bc-6ded-4e24-8e0a-7b240d8c4981"/></p>
 
 
-- [VAE Example](https://github.com/5121eun/models/blob/main/models/transformer_example.ipynb)
+- [VAE Example](https://github.com/5121eun/dl/blob/main/vae_example.ipynb)
 
 <p align="center"><img src="https://github.com/5121eun/dl/assets/121006954/3c14d275-9186-4373-ba9d-1de98cc91146"/></p>
 
